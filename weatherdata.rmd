@@ -1,0 +1,101 @@
+---
+title: "Most Harmful Weather Events"
+author: "Miguel Briones"
+date: "December 25, 2016"
+output: html_document
+---
+
+Synopsis
+---
+The most harmful weather events across the United States, in relation to population health, are tornadoes, excessive heat, and flash floods.
+
+Weather events with the greatest economic consequences, across the United States, are tornadoes, thunderstorm winds, and flash floods. 
+
+The raw data is taken from the [National Weather Service Instruction 10-1605] [1]. The database begins in the year 1950 and ends in November of 2011. Injuries, fatalities, and property damage (in dollars) are totalled over that time. 
+
+[1]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf "National Weather Service Instruction 10-1605"
+
+Data Processing
+---------------
+First, we load the data:
+```{r cache=TRUE}
+storm.data = read.csv(bzfile("repdata%2Fdata%2FStormData.csv.bz2"), header=TRUE)
+```
+
+We remove some of the columns:
+```{r}
+reduced.storm.data <- 
+        storm.data[,c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG")]
+```
+
+Then we normalize the event name:
+```{r}
+reduced.storm.data$EVTYPE <- 
+    gsub("^HEAT$", "EXCESSIVE HEAT", reduced.storm.data$EVTYPE)
+reduced.storm.data$EVTYPE <- 
+    gsub("^TSTM WIND$", "THUNDERSTORM WIND", reduced.storm.data$EVTYPE)
+reduced.storm.data$EVTYPE <- 
+    gsub("^THUNDERSTORM WIND$", "THUNDERSTORM WINDS", reduced.storm.data$EVTYPE)
+```
+
+
+Now we aggregate the data on fatalities and find the top 10 causes of deaths:
+```{r}
+agg.fatalities.data=aggregate(reduced.storm.data$FATALITIES,by=list(reduced.storm.data$EVTYPE), FUN=sum, na.rm=TRUE)
+colnames(agg.fatalities.data) = c("event.type", "fatality.total")
+fatalities.sorted=agg.fatalities.data[order(-agg.fatalities.data$fatality.total),]
+top.fatalities=fatalities.sorted[1:10,]
+top.fatalities$event.type=factor(top.fatalities$event.type, levels=top.fatalities$event.type, ordered=TRUE)
+```
+
+We then do the same for injuries:
+```{r}
+agg.injuries.data <-
+        aggregate(
+                reduced.storm.data$INJURIES, 
+                by=list(reduced.storm.data$EVTYPE), FUN=sum, na.rm=TRUE)
+colnames(agg.injuries.data) = c("event.type", "injury.total")
+injuries.sorted <- agg.injuries.data[order(-agg.injuries.data$injury.total),] 
+top.injuries <- injuries.sorted[1:10,]
+top.injuries$event.type <- 
+    factor(
+        top.injuries$event.type, levels=top.injuries$event.type, 
+        ordered=TRUE)
+```
+
+Finally we do the same for property damage:
+```{r}
+agg.prop.dmg.data <-
+        aggregate(
+                reduced.storm.data$PROPDMG, 
+                by=list(reduced.storm.data$EVTYPE), FUN=sum, na.rm=TRUE)
+colnames(agg.prop.dmg.data) = c("event.type", "prop.dmg.total")
+prop.dmg.sorted <- agg.prop.dmg.data[order(-agg.prop.dmg.data$prop.dmg.total),] 
+top.prop.dmg <- prop.dmg.sorted[1:10,]
+top.prop.dmg$event.type <- 
+    factor(
+        top.prop.dmg$event.type, levels=top.prop.dmg$event.type, 
+        ordered=TRUE)
+```
+Results
+-------
+First we graph the top 10 causes of fatalities:
+```{r}
+library(ggplot2)
+ggplot(data=top.fatalities, aes(x=event.type, y=fatality.total)) + geom_bar(stat="identity") + xlab("Event type") + ylab("Total Fatalities") + ggtitle("Fatalities By Event Type") + theme(axis.text.x = element_text(angle = 45, hjust=1))
+```
+We do the same for injuries:
+```{r}
+ggplot(data=top.injuries, aes(x=event.type, y=injury.total)) + 
+    geom_bar(stat="identity") + xlab("Event type") + ylab("Total injuries") + 
+    ggtitle("Injuries By Event Type") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Then, we do so for property damage:
+```{r}
+ggplot(data=top.prop.dmg, aes(x=event.type, y=prop.dmg.total)) + 
+    geom_bar(stat="identity") + xlab("Event type") + 
+    ylab("Total property damage") +  ggtitle("Property Damage By Event Type") + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
